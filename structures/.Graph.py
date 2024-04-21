@@ -1,3 +1,5 @@
+import copy
+
 class graph_class:
     def __init__(self, file=""):
         self.graph = {}
@@ -11,9 +13,9 @@ class graph_class:
                 self.graph[vrai_i] = {"duration": int(line[1]), "predecessors": line[2:]}
         for i in self.graph:
             self.graph[i]["predecessors"] = [int(i) for i in self.graph[i]["predecessors"]]
-        self.orginal_graph = self.graph.copy()
-        print(self.graph)
-        print(self.orginal_graph)
+        self.orginal_graph = copy.deepcopy(self.graph)
+
+        self.display_graph_matrix()
         
     def display_graph_matrix(self):
         matrix = [ ["*" for _ in range(len(self.orginal_graph))] for _ in range(len(self.orginal_graph))]
@@ -21,9 +23,56 @@ class graph_class:
             for j in self.orginal_graph[i]["predecessors"]:
                 if int(j) < len(matrix) and i < len(matrix[int(j)]):
                     matrix[int(j)][i] = self.orginal_graph[i]["duration"]
-        
         for i in range(len(matrix)):
             print(matrix[i])
+
+    def is_acyclic(self):
+        """
+        Return True if the graph is acyclic.
+        Return False otherwise.
+        this function use a copy to delete the nodes that have no predecessors 
+        """
+        print(self.orginal_graph)
+        matrix = [ [None for _ in range(len(self.orginal_graph))] for _ in range(len(self.orginal_graph))]
+        for i in self.orginal_graph:
+            for j in self.orginal_graph[i]["predecessors"]:
+                if int(j) < len(matrix) and i < len(matrix[int(j)]):
+                    matrix[int(j)][i] = self.orginal_graph[i]["duration"]
+
+
+        visited = [False] * len(matrix)
+        stack = [False] * len(matrix)
+        def dfs(node):
+            visited[node] = True
+            stack[node] = True
+
+            for neighbor in range(len(matrix)):
+                if matrix[node][neighbor] != None:
+                    if not visited[neighbor]:
+                        if dfs(neighbor):
+                            return True
+                    elif stack[neighbor]:
+                        return True
+
+            stack[node] = False
+            return False
+
+        for node in range(len(matrix)):
+            if not visited[node]:
+                if dfs(node):
+                    return False
+
+        return True
+
+    def has_negative_edges(self):
+        for i in self.graph:
+            for j in self.graph[i]["predecessors"]:
+                if self.graph[j]["duration"] < 0:
+                    return True
+        return False
+        
+
+
         
 
         
@@ -32,12 +81,23 @@ class graph_class:
         return str(self.graph)
     
     def compute(self):
+
+        #check if the graph has negative edges
+        if self.has_negative_edges():
+            print("The graph has negative edges")
+            return
+        
+        #check if the graph is acyclic
+        if not self.is_acyclic():
+            print("The graph is not acyclic")
+            return
+        
         #create a node nammed 0 with no predecessors and a duration of 0 
         self.graph[0] = {"duration": 0, "predecessors": []}
         #the node 0 is the only node that has no predecessors so we add 0 as predecessor to all the nodes that have no predecessors ! except 0
         for i in self.graph:
             if self.graph[i]["predecessors"] == [] and i != 0:
-                self.graph[i]["predecessors"].append('0')
+                self.graph[i]["predecessors"].append(0)
         self.graph[len(self.graph)] = {"duration": 0, "predecessors": []}
         has_successor = []
         for i in self.graph:
@@ -117,6 +177,8 @@ class graph_class:
         return ranks
 
 
+graphe = graph_class("TestFiles/table 8.txt")
+graphe.compute()
 
 """
 graphe = graph_class("TestFiles/table 7.txt")
@@ -162,5 +224,23 @@ def main():
         print(Graphs[choice-1].floats)
     else:
         print("Invalid choice")
+"""
 if __name__ == "__main__":
     main()
+"""
+
+results = []
+for i in range(1,15):
+    graphe = graph_class(f"TestFiles/table {i}.txt")
+    graphe.compute()
+    results.append(graphe.is_acyclic())
+    print("\n\n")
+
+print(results)
+graph_class("TestFiles/table 1.txt").is_acyclic()
+
+
+
+
+graphe = graph_class("TestFiles/table 2.txt")
+graphe.compute()

@@ -263,3 +263,11 @@ graph_test = Graph("./TestFiles/table 7.txt")
 print(graph_test)
 print(graph_test.is_scheduling_graph())
 print(graph_test.compute())
+
+
+Graps=[ Graph("./TestFiles/table {}.txt".format(i)) for i in range(1, 14)]
+
+for i in range(1, 14):
+    print("Graph {} is acyclic: {}".format(i, Graps[i-1].is_acyclic()))
+
+print(Graps[0].graph)
