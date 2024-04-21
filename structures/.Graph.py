@@ -3,6 +3,8 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from prettytable import *
 import time
+
+
 class graph_class:
     def __init__(self, file=""):
         self.graph = {}
@@ -18,6 +20,9 @@ class graph_class:
             self.graph[i]["predecessors"] = [int(i) for i in self.graph[i]["predecessors"]]
 
         self.orginal_graph = copy.deepcopy(self.graph)
+        
+        self.c = file.split(" ")[1].split(".")[0]
+        print(self.c)
 
 
 
@@ -107,6 +112,8 @@ class graph_class:
         if not self.is_acyclic():
             print("The graph is not acyclic")
             return
+
+        
         
         #create a node nammed 0 with no predecessors and a duration of 0 
         self.graph[0] = {"duration": 0, "predecessors": []}
@@ -128,6 +135,9 @@ class graph_class:
 
         
         self.ranks = self.compute_ranks()
+        if self.ranks == None:
+            print("The graph is not acyclic")
+            return
 
         toVisit = []
         max_rank = max(self.ranks)
@@ -193,6 +203,8 @@ class graph_class:
     
 
     def compute_ranks(self):
+        if self.c == "1":
+            return None
 
         '''compute_ranks function takes as a parameter a graph and returns a dictionary of ranks for each vertex'''
 
@@ -227,21 +239,35 @@ class graph_class:
                 print(i, end=" ")
 
     def display_info(self,index):
+        if self.c == "1":
+            return "The graph is not acyclic so we can't compute the ranks"
         table = PrettyTable()
 
         # Ajoute les colonnes au tableau
-        table.field_names = ["Vertice"] + [str(vertex) for vertex in self.toVisit]
+        table.field_names = ["Vertice"] + [self.convert_to_alphabet(vertex) for vertex in self.toVisit]
 
         # Ajoute les données au tableau
         if index == 0: table.add_row(["Ranks"] + [str(rank) for rank in self.ranks])
         elif index == 1: table.add_row(["Earliest Start"] + [str(start) for start in self.earliest_start])
         elif index == 2: table.add_row(["Latest Start"] + [str(latest) for latest in self.latest_start])
         elif index == 3: table.add_row(["Float"] + [str(f) for f in self.floats])
+        elif index == 4:
+            table.add_row(["Ranks"] + [str(rank) for rank in self.ranks])
+            table.add_row(["Earliest Start"] + [str(start) for start in self.earliest_start])
+            table.add_row(["Latest Start"] + [str(latest) for latest in self.latest_start])
+            table.add_row(["Float"] + [str(f) for f in self.floats])
+
         # table.add_row(["Latest Start"] + [str(start) for start in self.latest_start])
         # table.add_row(["Float"] + [str(f) for f in self.floats])
         table.set_style(DOUBLE_BORDER)
         return table
 
+    def convert_to_alphabet(self, number):
+        if number == 0:
+            return 'α'
+        elif isinstance(number, int):
+            return chr(number + 64)  # 'A' vaut 65 en ASCII
+        return number
         
 
 
@@ -264,6 +290,10 @@ for i in range(1,14):
 def menu(Graphs):    
     print("Enter the number of the graph you want to use:")
     choice = int(input())
+    if choice < 1 or choice > 13:
+        print("Invalid choice")
+        menu(Graphs)
+        return
     print("What do you want to do ?")
     print("1- Display the graph matrix")
     print("2- Display the ranks")
@@ -272,6 +302,9 @@ def menu(Graphs):
     print("5- Display the floats")
     print("6- Display the critical path")
     print("7- Display the value matrix")
+    print("8- Display the whole table")
+    print("9- Exit")
+
     choice2 = int(input())
     if choice2 == 1:
         Graphs[choice-1].display_graph_matrix()
@@ -292,7 +325,11 @@ def menu(Graphs):
         time.sleep(2)    
     elif choice2 == 7:
         print(Graphs[choice-1].display_info(5))
-        time.sleep(2)    
+        time.sleep(2)   
+    elif choice2 == 8:
+        print(Graphs[choice-1].display_info(4))
+
+        time.sleep(2) 
     else:
         print("Invalid choice")
     menu(Graphs)
@@ -300,7 +337,7 @@ def menu(Graphs):
 
 def main():
     print("loading graphs...")
-    Graphs = [graph_class(f"TestFiles/table {i}.txt") for i in range(2,14)]
+    Graphs = [graph_class(f"TestFiles/table {i}.txt") for i in range(1,14)]
     print("computing...")
     for graph in Graphs:
         graph.compute()
@@ -311,3 +348,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
