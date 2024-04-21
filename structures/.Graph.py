@@ -1,5 +1,8 @@
 import copy
-
+import networkx as nx
+import matplotlib.pyplot as plt
+from prettytable import *
+import time
 class graph_class:
     def __init__(self, file=""):
         self.graph = {}
@@ -13,26 +16,39 @@ class graph_class:
                 self.graph[vrai_i] = {"duration": int(line[1]), "predecessors": line[2:]}
         for i in self.graph:
             self.graph[i]["predecessors"] = [int(i) for i in self.graph[i]["predecessors"]]
+
         self.orginal_graph = copy.deepcopy(self.graph)
 
-        self.display_graph_matrix()
+
+
+        #self.display_graph_matrix()
         
     def display_graph_matrix(self):
-        matrix = [ ["*" for _ in range(len(self.orginal_graph))] for _ in range(len(self.orginal_graph))]
-        for i in self.orginal_graph:
-            for j in self.orginal_graph[i]["predecessors"]:
-                if int(j) < len(matrix) and i < len(matrix[int(j)]):
-                    matrix[int(j)][i] = self.orginal_graph[i]["duration"]
-        for i in range(len(matrix)):
-            print(matrix[i])
+        G = nx.DiGraph()
+        for node, data in self.orginal_graph.items():
+            node_duration = data["duration"]
+            G.add_node(node, duration=node_duration)
+            for pred in data["predecessors"]:
+                G.add_edge(pred, node, duration=node_duration)
+        
+        pos = nx.kamada_kawai_layout(G)
 
+        plt.figure(figsize=(8, 6), dpi=200, facecolor='white', edgecolor='black', frameon=True)
+        # Dessiner le graphe avec les nœuds et les arêtes
+        nx.draw(G, pos, with_labels=True, node_size=700, node_color='skyblue', font_size=8, font_weight='bold', arrows=True)
+        
+        # Afficher les durées à côté des arêtes avec une position personnalisée
+        edge_labels = {(u, v): d["duration"] for u, v, d in G.edges(data=True)}
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=5, font_color='black', label_pos=0.5, verticalalignment='bottom', horizontalalignment='right')
+
+        # Afficher le graphe
+        plt.show()
     def is_acyclic(self):
         """
         Return True if the graph is acyclic.
         Return False otherwise.
         this function use a copy to delete the nodes that have no predecessors 
         """
-        print(self.orginal_graph)
         matrix = [ [None for _ in range(len(self.orginal_graph))] for _ in range(len(self.orginal_graph))]
         for i in self.orginal_graph:
             for j in self.orginal_graph[i]["predecessors"]:
@@ -103,25 +119,21 @@ class graph_class:
         for i in self.graph:
             if self.graph[i]["predecessors"] != []:
                 has_successor.extend(self.graph[i]["predecessors"])
-        print(has_successor)
         for i in self.graph:
             if i not in has_successor:
                 self.graph[len(self.graph)-1]["predecessors"].append(i)
-        self.display_graph_matrix()
+        self.graph[len(self.graph)-1]["predecessors"].remove(len(self.graph)-1)
+
+        #self.display_graph_matrix()
 
         
         self.ranks = self.compute_ranks()
 
-        print(self.ranks)
-
         toVisit = []
         max_rank = max(self.ranks)
         for i in range(max_rank+1):
-            for index, value in enumerate(self.ranks):
-                if value == i:
-                    toVisit.append(index)
-        print("toVisit", end=" ")
-        print(toVisit)
+            toVisit.extend([vertex for vertex in self.ranks if self.ranks[vertex] == i])
+
 
         earliest_start = [0] * len(self.graph)
 
@@ -129,24 +141,40 @@ class graph_class:
             for predecessor in self.graph[vertex]["predecessors"]:
                 if earliest_start[vertex] < earliest_start[int(predecessor)] + self.graph[int(predecessor)]["duration"] or earliest_start[vertex] == 0:
                     earliest_start[vertex] = earliest_start[int(predecessor)] + self.graph[int(predecessor)]["duration"]
-        print("earliest_start", end=" ")
-        print(earliest_start)
+        
 
         latest_start = [-1] * len(self.graph)
 
+
+
+
         latest_start[len(self.graph)-1] = earliest_start[len(self.graph)-1]
+
+        self.get_successors()
 
         for vertex in reversed(toVisit):
             for successor in self.successors[vertex]:
                 if latest_start[vertex] > latest_start[successor] - self.graph[vertex]["duration"] or latest_start[vertex] == -1:
                     latest_start[vertex] = latest_start[successor] - self.graph[vertex]["duration"]
-        print("latest_start", end=" ")
-        print(latest_start)
+
+
+
+    
+
+        
 
         floats = [latest_start[i] - earliest_start[i] for i in range(len(self.graph))]
 
+        print("earliest_start", end=" ")
+        print(earliest_start)
+        print("latest_start", end=" ")
+        print(latest_start)
         print("floats", end=" ")
         print(floats)
+        self.toVisit = toVisit
+        self.floats = floats
+        self.earliest_start = earliest_start
+        self.latest_start = latest_start
 
                 
                     
@@ -159,28 +187,68 @@ class graph_class:
             for predecessor in self.graph[vertex]["predecessors"]:
                 successors[int(predecessor)].append(vertex)
         self.successors = successors
+        self.successors[len(self.graph)-1] = []
 
+
+    
 
     def compute_ranks(self):
+
         '''compute_ranks function takes as a parameter a graph and returns a dictionary of ranks for each vertex'''
-        ranks = [-1] * len(self.graph)
-        self.get_successors()
-        
-        #use dfs to compute the ranks
-        def dfs(vertex, rank):
+
+        ranks = {vertex: -1 for vertex in self.graph}
+        predecessors = {vertex: [] for vertex in self.graph}
+        for vertex, data in self.graph.items():
+            for predecessor in data['predecessors']:
+                predecessors[vertex].append(predecessor)
+
+        def calculate_rank(vertex):
             if ranks[vertex] != -1:
-                return
-            ranks[vertex] = rank
-            for successor in self.successors[vertex]:
-                dfs(successor, rank + 1)
-        dfs(0, 0)
+                return ranks[vertex]
+        
+            if not predecessors[vertex]:
+                ranks[vertex] = 0
+                return 0
+
+            max_rank = max(calculate_rank(predecessor) for predecessor in predecessors[vertex])
+        
+            ranks[vertex] = max_rank + 1
+
+            return ranks[vertex]
+
+        for vertex in self.graph:
+            calculate_rank(vertex)
+
         return ranks
 
+    def display_critical_path(self):
+        for i in range(len(self.graph)):
+            if self.floats[i] == 0:
+                print(i, end=" ")
 
+    def display_info(self,index):
+        table = PrettyTable()
+
+        # Ajoute les colonnes au tableau
+        table.field_names = ["Vertice"] + [str(vertex) for vertex in self.toVisit]
+
+        # Ajoute les données au tableau
+        if index == 0: table.add_row(["Ranks"] + [str(rank) for rank in self.ranks])
+        elif index == 1: table.add_row(["Earliest Start"] + [str(start) for start in self.earliest_start])
+        elif index == 2: table.add_row(["Latest Start"] + [str(latest) for latest in self.latest_start])
+        elif index == 3: table.add_row(["Float"] + [str(f) for f in self.floats])
+        # table.add_row(["Latest Start"] + [str(start) for start in self.latest_start])
+        # table.add_row(["Float"] + [str(f) for f in self.floats])
+        table.set_style(DOUBLE_BORDER)
+        return table
+
+        
+
+
+"""
 graphe = graph_class("TestFiles/table 8.txt")
 graphe.compute()
 
-"""
 graphe = graph_class("TestFiles/table 7.txt")
 graphe.compute()
 
@@ -193,16 +261,7 @@ for i in range(1,14):
 
 
 
-
-
-def main():
-    print("loading graphs...")
-    Graphs = [graph_class(f"TestFiles/table {i}.txt") for i in range(1,14)]
-    print("computing...")
-    for graph in Graphs:
-        graph.compute()
-    print("done")
-    print("-----------------------------Main Menu-----------------------------\n")
+def menu(Graphs):    
     print("Enter the number of the graph you want to use:")
     choice = int(input())
     print("What do you want to do ?")
@@ -211,36 +270,44 @@ def main():
     print("3- Display the earliest start")
     print("4- Display the latest start")
     print("5- Display the floats")
+    print("6- Display the critical path")
+    print("7- Display the value matrix")
     choice2 = int(input())
     if choice2 == 1:
         Graphs[choice-1].display_graph_matrix()
     elif choice2 == 2:
-        print(Graphs[choice-1].ranks)
+        print(Graphs[choice-1].display_info(0))
+        time.sleep(2)
     elif choice2 == 3:
-        print(Graphs[choice-1].earliest_start)
+        print(Graphs[choice-1].display_info(1))
+        time.sleep(2)
     elif choice2 == 4:
-        print(Graphs[choice-1].latest_start)
+        print(Graphs[choice-1].display_info(2))
+        time.sleep(2)
     elif choice2 == 5:
-        print(Graphs[choice-1].floats)
+        print(Graphs[choice-1].display_info(3))
+        time.sleep(2)
+    elif choice2 == 6:
+        print(Graphs[choice-1].critical_path)
+        time.sleep(2)    
+    elif choice2 == 7:
+        print(Graphs[choice-1].display_info(5))
+        time.sleep(2)    
     else:
         print("Invalid choice")
-"""
+    menu(Graphs)
+
+
+def main():
+    print("loading graphs...")
+    Graphs = [graph_class(f"TestFiles/table {i}.txt") for i in range(2,14)]
+    print("computing...")
+    for graph in Graphs:
+        graph.compute()
+    print("done")
+    print("-----------------------------Main Menu-----------------------------\n")
+    menu(Graphs)
+
+
 if __name__ == "__main__":
     main()
-"""
-
-results = []
-for i in range(1,15):
-    graphe = graph_class(f"TestFiles/table {i}.txt")
-    graphe.compute()
-    results.append(graphe.is_acyclic())
-    print("\n\n")
-
-print(results)
-graph_class("TestFiles/table 1.txt").is_acyclic()
-
-
-
-
-graphe = graph_class("TestFiles/table 2.txt")
-graphe.compute()
