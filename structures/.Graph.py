@@ -1,104 +1,166 @@
-
-
-##############################################################################
-#
-#
-#                               Test File, to delete
-#
-##############################################################################
-
-
-
-
-
-
-
-
-
-class Graph:
-
-
+class graph_class:
     def __init__(self, file=""):
-        self.graph = []
-        self.durations = []
-        self.read_graph(file)
-        self.ranks = {}
-        self.ComputeRanks()
-        
-        
-
-
-    def add_edge(self, u, v,w):
-        self.graph[u][v] = w
-
-    def read_graph(self, file):
-        '''Any constraint table of the following form (we take as an example the table C01 of the TD Appendix, and we’ve replaced the alphabetic task labels by numbers (A1, B2 etc.). On each line, the first number is the task number, the second is its duration, and the other numbers (if present) are the constraints (predecessors) : 
-1 9 
-2 2 
-3 3 2
-4 5 1
-5 2 1 4
-6 2 5
-7 2 4
-8 4 4 5
-9 5 4
-10 1 2 3
-11 2 1 5 6 7 8
-The N tasks are numbered from 1 to N. The fictitious task   will be denoted as 0. The fictitious task   will be numbered N+1.
-'''
-        with open(file, 'r') as f:
-            lines = f.readlines()
-            length = len(lines)
-            self.graph = [[0 for column in range(length)] for row in range(length)]
-            self.durations = [0 for i in range(length)]
-            for line in lines:
+        self.graph = {}
+        self.orginal_graph = {}
+        with open(file, "r") as f:
+            for i, line in enumerate(f):
                 line = line.split()
-                u = int(line[0])
-                self.durations[u-1] = int(line[1])
-                for v in line[2:]:
-                    self.add_edge(int(v)-1, u-1, int(line[1]))
+                vrai_i = i + 1
 
+
+                self.graph[vrai_i] = {"duration": int(line[1]), "predecessors": line[2:]}
+        for i in self.graph:
+            self.graph[i]["predecessors"] = [int(i) for i in self.graph[i]["predecessors"]]
+        self.orginal_graph = self.graph.copy()
+        print(self.graph)
+        print(self.orginal_graph)
+        
+    def display_graph_matrix(self):
+        matrix = [ ["*" for _ in range(len(self.orginal_graph))] for _ in range(len(self.orginal_graph))]
+        for i in self.orginal_graph:
+            for j in self.orginal_graph[i]["predecessors"]:
+                if int(j) < len(matrix) and i < len(matrix[int(j)]):
+                    matrix[int(j)][i] = self.orginal_graph[i]["duration"]
+        
+        for i in range(len(matrix)):
+            print(matrix[i])
+        
+
+        
+                
     def __str__(self):
-        string = "   "
-        for i in range(len(self.graph)):
-            string += str(i+1).zfill(2) + " "  # Use zfill(2) to pad the index with leading zeros
-        for row in enumerate(self.graph):
-            string += "\n" + str(row[0]+1).zfill(2) + " "  # Use zfill(2) to pad the index with leading zeros
-            for column in row[1]:
-                if len(str(column)) == 1:
-                    string += "" + str(column) + "  "
-                else:
-                    string +=  str(column) + " "
-        return string
+        return str(self.graph)
+    
+    def compute(self):
+        #create a node nammed 0 with no predecessors and a duration of 0 
+        self.graph[0] = {"duration": 0, "predecessors": []}
+        #the node 0 is the only node that has no predecessors so we add 0 as predecessor to all the nodes that have no predecessors ! except 0
+        for i in self.graph:
+            if self.graph[i]["predecessors"] == [] and i != 0:
+                self.graph[i]["predecessors"].append('0')
+        self.graph[len(self.graph)] = {"duration": 0, "predecessors": []}
+        has_successor = []
+        for i in self.graph:
+            if self.graph[i]["predecessors"] != []:
+                has_successor.extend(self.graph[i]["predecessors"])
+        print(has_successor)
+        for i in self.graph:
+            if i not in has_successor:
+                self.graph[len(self.graph)-1]["predecessors"].append(i)
+        self.display_graph_matrix()
 
-    def ComputeRanks(self):
-        # We will use the topological sort algorithm to fill the ranks
-        visited = [False for i in range(len(self.graph))]
-        stack = []
-        for i in range(len(self.graph)):
-            if not visited[i]:
-                self.topologicalSort(i, visited, stack)
-        for i in range(len(stack)):
-            self.ranks[stack[i]] = i
+        
+        self.ranks = self.compute_ranks()
 
-    def topologicalSort(self, v, visited, stack):
-        visited[v] = True
-        for i in range(len(self.graph)):
-            if self.graph[v][i] != 0 and not visited[i]:
-                self.topologicalSort(i, visited, stack)
-        stack.insert(0, v)
-        return stack
+        print(self.ranks)
+
+        toVisit = []
+        max_rank = max(self.ranks)
+        for i in range(max_rank+1):
+            for index, value in enumerate(self.ranks):
+                if value == i:
+                    toVisit.append(index)
+        print("toVisit", end=" ")
+        print(toVisit)
+
+        earliest_start = [0] * len(self.graph)
+
+        for vertex in toVisit:
+            for predecessor in self.graph[vertex]["predecessors"]:
+                if earliest_start[vertex] < earliest_start[int(predecessor)] + self.graph[int(predecessor)]["duration"] or earliest_start[vertex] == 0:
+                    earliest_start[vertex] = earliest_start[int(predecessor)] + self.graph[int(predecessor)]["duration"]
+        print("earliest_start", end=" ")
+        print(earliest_start)
+
+        latest_start = [-1] * len(self.graph)
+
+        latest_start[len(self.graph)-1] = earliest_start[len(self.graph)-1]
+
+        for vertex in reversed(toVisit):
+            for successor in self.successors[vertex]:
+                if latest_start[vertex] > latest_start[successor] - self.graph[vertex]["duration"] or latest_start[vertex] == -1:
+                    latest_start[vertex] = latest_start[successor] - self.graph[vertex]["duration"]
+        print("latest_start", end=" ")
+        print(latest_start)
+
+        floats = [latest_start[i] - earliest_start[i] for i in range(len(self.graph))]
+
+        print("floats", end=" ")
+        print(floats)
+
+                
+                    
+        
+
+    
+    def get_successors(self):
+        successors = {vertex: [] for vertex in self.graph}
+        for vertex in self.graph:
+            for predecessor in self.graph[vertex]["predecessors"]:
+                successors[int(predecessor)].append(vertex)
+        self.successors = successors
+
+
+    def compute_ranks(self):
+        '''compute_ranks function takes as a parameter a graph and returns a dictionary of ranks for each vertex'''
+        ranks = [-1] * len(self.graph)
+        self.get_successors()
+        
+        #use dfs to compute the ranks
+        def dfs(vertex, rank):
+            if ranks[vertex] != -1:
+                return
+            ranks[vertex] = rank
+            for successor in self.successors[vertex]:
+                dfs(successor, rank + 1)
+        dfs(0, 0)
+        return ranks
+
+
+
+"""
+graphe = graph_class("TestFiles/table 7.txt")
+graphe.compute()
+
+for i in range(1,14):
+    print(f"TestFiles/table {i}.txt")
+    graphe = graph(f"TestFiles/table {i}.txt")
+    graphe.compute()
+    print("\n\n")"""
 
 
 
 
 
-# Path: projets_l3/graphTheory/structures/Graph.py
 
-test = Graph("./TestFiles/table 1.txt")
-Graps = []
-for i in range(1, 14):
-    Graps.append(Graph("./TestFiles/table {}.txt".format(i)))
-    print(Graps[i-1])
-    print("\n\n\n")
-    print(Graps[i-1].ranks)
+def main():
+    print("loading graphs...")
+    Graphs = [graph_class(f"TestFiles/table {i}.txt") for i in range(1,14)]
+    print("computing...")
+    for graph in Graphs:
+        graph.compute()
+    print("done")
+    print("-----------------------------Main Menu-----------------------------\n")
+    print("Enter the number of the graph you want to use:")
+    choice = int(input())
+    print("What do you want to do ?")
+    print("1- Display the graph matrix")
+    print("2- Display the ranks")
+    print("3- Display the earliest start")
+    print("4- Display the latest start")
+    print("5- Display the floats")
+    choice2 = int(input())
+    if choice2 == 1:
+        Graphs[choice-1].display_graph_matrix()
+    elif choice2 == 2:
+        print(Graphs[choice-1].ranks)
+    elif choice2 == 3:
+        print(Graphs[choice-1].earliest_start)
+    elif choice2 == 4:
+        print(Graphs[choice-1].latest_start)
+    elif choice2 == 5:
+        print(Graphs[choice-1].floats)
+    else:
+        print("Invalid choice")
+if __name__ == "__main__":
+    main()

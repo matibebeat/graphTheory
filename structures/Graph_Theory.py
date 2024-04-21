@@ -88,24 +88,24 @@ class Graph:
         self.graph[u][v] = w
 
     def read_graph(self, file):
-        '''Any constraint table of the following form (we take as an example the table C01 of the TD Appendix, and we’ve replaced the alphabetic task labels by numbers (A1, B2 etc.). On each line, the first number is the task number, the second is its duration, and the other numbers (if present) are the constraints (predecessors) : 
-1 9 
-2 2 
-3 3 2
-4 5 1
-5 2 1 4
-6 2 5
-7 2 4
-8 4 4 5
-9 5 4
-10 1 2 3
-11 2 1 5 6 7 8
-The N tasks are numbered from 1 to N. The fictitious task   will be denoted as 0. The fictitious task   will be numbered N+1.
-'''
+        """Any constraint table of the following form (we take as an example the table C01 of the TD Appendix, and we’ve replaced the alphabetic task labels by numbers (A1, B2 etc.). On each line, the first number is the task number, the second is its duration, and the other numbers (if present) are the constraints (predecessors) : 
+            1 9 
+            2 2 
+            3 3 2
+            4 5 1
+            5 2 1 4
+            6 2 5
+            7 2 4
+            8 4 4 5
+            9 5 4
+            10 1 2 3
+            11 2 1 5 6 7 8
+            The N tasks are numbered from 1 to N. The fictitious task   will be denoted as 0. The fictitious task   will be numbered N+1.
+            """
         with open(file, 'r') as f:
             lines = f.readlines()
             length = len(lines)
-            self.graph = [[0 for column in range(length)] for row in range(length)]
+            self.graph = [[None for column in range(length)] for row in range(length)]
             self.durations = [0 for i in range(length)]
             for line in lines:
                 line = line.split()
@@ -140,7 +140,7 @@ The N tasks are numbered from 1 to N. The fictitious task   will be denoted a
             stack[node] = True
 
             for neighbor in range(len(self.graph)):
-                if self.graph[node][neighbor] != 0:
+                if self.graph[node][neighbor] != None:
                     if not visited[neighbor]:
                         if dfs(neighbor):
                             return True
@@ -156,11 +156,110 @@ The N tasks are numbered from 1 to N. The fictitious task   will be denoted a
                     return False
 
         return True
+    
+    def has_negative_edges(self):
+        for i in range(len(self.graph)):
+            for j in range(len(self.graph)):
+                if self.graph[i][j] != None:
+                    if self.graph[i][j] < 0:
+                        return True
+        return False
+
+    def is_connected(self):
+        visited = [False] * len(self.graph)
+        stack = [False] * len(self.graph)
+
+        def dfs(node):
+            visited[node] = True
+            stack[node] = True
+
+            for neighbor in range(len(self.graph)):
+                if self.graph[node][neighbor] != None:
+                    if not visited[neighbor]:
+                        dfs(neighbor)
+
+            stack[node] = False
+
+        for node in range(len(self.graph)):
+            if not visited[node]:
+                dfs(node)
+
+        return all(visited)
+
+    def is_scheduling_graph(self):
+        return self.is_acyclic() and not self.has_negative_edges() and self.is_connected()
+
+    def ranks(self):
+        ranks = [0] * len(self.graph)
+        visited = [False] * len(self.graph)
+
+        def dfs(node, rank):
+            visited[node] = True
+            ranks[node] = rank
+
+            for neighbor in range(len(self.graph)):
+                if not visited[neighbor] and self.graph[node][neighbor] != 0:
+                    dfs(neighbor, rank+1)
+
+        #start the dfs from the task with no predecessors
+        for node in range(len(self.graph)):
+            if all([self.graph[i][node] == None for i in range(len(self.graph))]):
+                dfs(node, 0)
+
+        return ranks
+
+    def compute(self):
+        if not self.is_scheduling_graph():
+            return None
+
+        #add a fictitious task alpha with duration 0 and no predecessors that will be the predecessor of all the tasks with no predecessors
+        self.graph.insert(0, [None for i in range(len(self.graph)+1)])
+        self.durations.insert(0, 0)
+        for i in range(1, len(self.graph)):
+            self.graph[i].insert(0, None)
+        for i in range(1, len(self.graph)):
+            if all([self.graph[j][i] == None for j in range(len(self.graph))]):
+                self.graph[0][i] = 0
+        
+
+        self.ranks = self.ranks()
+        return self.ranks
+
+
+        
+
+
 Graps=[]
+"""
 for i in range(1, 14):
     Graps.append(Graph("./TestFiles/table {}.txt".format(i)))
     print(Graps[i-1])
     print("\n\n\n")
 
+
 for i in range(1, 14):
     print("Graph {} is acyclic: {}".format(i, Graps[i-1].is_acyclic()))
+
+for i in range(1, 14):
+    print("Graph {} has negative edges: {}".format(i, Graps[i-1].has_negative_edges()))
+
+for i in range(1, 14):
+    print("Graph {} is connected: {}".format(i, Graps[i-1].is_connected()))
+
+for i in range(1, 14):
+    print("Graph {} is a scheduling graph: {}".format(i, Graps[i-1].is_scheduling_graph()))
+
+for i in range(1, 14):
+    print("Graph {} ranks: {}".format(i, Graps[i-1].ranks()))
+
+
+for i in range(1,14):
+    print("Graph {} earliest date : \n {}".format(i,Graps[i-1].compute()))
+
+
+"""
+
+graph_test = Graph("./TestFiles/table 7.txt")
+print(graph_test)
+print(graph_test.is_scheduling_graph())
+print(graph_test.compute())
